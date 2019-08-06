@@ -89,7 +89,8 @@ def main():
                     cpg_network_shape=constants.CPG_NETWORK_SHAPE,
                     use_batch_norm=constants.USE_BATCH_NORM,
                     batch_norm_momentum=constants.BATCH_NORM_MOMENTUM,
-                    batch_norm_train_stats=constants.BATCH_NORM_TRAIN_STATS)
+                    batch_norm_train_stats=constants.BATCH_NORM_TRAIN_STATS,
+                    input_channels=constants.STATE_WINDOW)
 
     # learning rate with decay operation
     if constants.LR_DECAY == 'linear':

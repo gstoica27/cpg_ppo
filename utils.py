@@ -66,15 +66,16 @@ def create_fc_network_params(input_dim, context_dim, fc_architecture, initialize
 
 
 def create_cnn_network_params(context_dim, cnn_architecture, padding, initializer,
-                             name, cpg_network_shape=None, dropout=.5, use_batch_norm=True,
-                             batch_norm_momentum=.1, batch_norm_train_stats=True):
+                              name, cpg_network_shape=None, dropout=.5, use_batch_norm=True,
+                              batch_norm_momentum=.1, batch_norm_train_stats=True,
+                              input_channels=3):
     if initializer is None:
         initializer = tf.orthogonal_initializer(np.sqrt(2.0))
 
     conv_filters = []
     conv_bias = []
     conv_strides = []
-    input_depth = 3
+    input_depth = input_channels
 
     for layer_idx, (num_outputs, kernel_size, stride) in enumerate(cnn_architecture):
         if cpg_network_shape is not None:

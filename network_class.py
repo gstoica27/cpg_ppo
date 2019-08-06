@@ -19,7 +19,8 @@ class Network(object):
                  dropout=.5,
                  use_batch_norm=True,
                  batch_norm_momentum=.1,
-                 batch_norm_train_stats=True):
+                 batch_norm_train_stats=True,
+                 input_channels=3):
 
         self.all_variables = {}  # defaultdict(lambda: defaultdict(None))
         self.conv_architecture = convs
@@ -33,6 +34,7 @@ class Network(object):
         self.batch_norm_momentum = batch_norm_momentum
         self.batch_norm_train_stats = batch_norm_train_stats
         self.dropout = dropout
+        self.input_channels = input_channels
         if context_size is not None:
             self.context_vector = tf.get_variable(name='context_vector',
                                                   dtype=tf.float32,
@@ -84,7 +86,8 @@ class Network(object):
                                                             dropout=self.dropout,
                                                             use_batch_norm=self.use_batch_norm,
                                                             batch_norm_momentum=self.batch_norm_momentum,
-                                                            batch_norm_train_stats=self.batch_norm_train_stats)
+                                                            batch_norm_train_stats=self.batch_norm_train_stats,
+                                                            input_channels=self.input_channels)
                 self.all_variables.update(cnn_base_params)
 
             conv_output = cnn_network(inpt,
@@ -96,7 +99,7 @@ class Network(object):
         with tf.variable_scope('cnn_fc_base_network', reuse=tf.AUTO_REUSE):
             fc_name = 'cnn_fc'
             if fc_name not in self.all_variables:
-                fc_base_params = create_fc_network_params(input_dim=tf.shape(conv_flattened)[-1],
+                fc_base_params = create_fc_network_params(input_dim=tf.shape(conv_flattened)[-1].eval(),
                                                           context_dim=self.cpg_context_size,
                                                           fc_architecture=self.fc_architecture,
                                                           initializer=tf.orthogonal_initializer(np.sqrt(2.0)),
@@ -116,7 +119,7 @@ class Network(object):
         with tf.variable_scope('cnn_rnn_base_network', reuse=tf.AUTO_REUSE):
             rnn_name = 'rnn'
             if rnn_name not in self.all_variables:
-                rnn_base_params = create_lstm_network_params(input_dim=tf.shape(fc_output)[-1],
+                rnn_base_params = create_lstm_network_params(input_dim=tf.shape(fc_output)[-1].eval(),
                                                              context_dim=self.cpg_context_size,
                                                              hidden_dim=lstm_unit,
                                                              initializer=tf.orthogonal_initializer(np.sqrt(2.0)),
@@ -146,7 +149,7 @@ class Network(object):
         with tf.variable_scope('policy_network', reuse=tf.AUTO_REUSE):
             policy_name = 'policy'
             if policy_name not in self.all_variables:
-                policy_params = create_fc_network_params(input_dim=tf.shape(output)[-1],
+                policy_params = create_fc_network_params(input_dim=tf.shape(output)[-1].eval(),
                                                          context_dim=self.cpg_context_size,
                                                          fc_architecture=[num_actions],
                                                          initializer=tf.orthogonal_initializer(0.1),
@@ -169,7 +172,7 @@ class Network(object):
         with tf.variable_scope('value_network', reuse=tf.AUTO_REUSE):
             value_name = 'value'
             if value_name not in self.all_variables:
-                value_params = create_fc_network_params(input_dim=tf.shape(output)[-1],
+                value_params = create_fc_network_params(input_dim=tf.shape(output)[-1].eval(),
                                                         context_dim=self.cpg_context_size,
                                                         fc_architecture=[1],
                                                         initializer=tf.orthogonal_initializer(1.0),
@@ -182,7 +185,7 @@ class Network(object):
                 self.all_variables.update(value_params)
 
             value = fc_network(input=output,
-                               fc_params=[1],
+                               fc_params=self.all_variables[value_name],
                                gen_vector=self.context_vector,
                                is_train=is_train,
                                activation=None)
