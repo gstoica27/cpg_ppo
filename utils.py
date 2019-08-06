@@ -249,7 +249,7 @@ def lstm_network(inputs, keep_props, state, lstm_params, gen_vector=None, is_tra
         cell_state = cell_state * (1 - keep_prop)
         hidden_state = hidden_state * (1 - keep_prop)
 
-        if gen_vector is not None:
+        if isinstance(input_weights, ContextualParameterGenerator):
             input_transformed = tf.matmul(input[:, None, :], input_weights)[:, 0, :]
             hidden_transformed = tf.matmul(hidden_state[:, None, :], hidden_weights)[:, 0, :]
 
