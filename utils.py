@@ -202,6 +202,10 @@ def cnn_network(input, cnn_params, gen_vector=None, is_train=False, activation=t
     conv_output = input
     for layer_idx, (layer_filter, layer_bias) in enumerate(zip(filters, bias)):
 
+        layer_strides = [1, strides[layer_idx], strides[layer_idx], 1]
+        # layer_strides = [1, 2, 2, 1]
+        # layer_strides = strides[layer_idx]
+
         # if gen_vector is not None:
         if isinstance(layer_filter, ContextualParameterGenerator):
             layer_filter = layer_filter.generate(gen_vector, is_train)
@@ -210,7 +214,7 @@ def cnn_network(input, cnn_params, gen_vector=None, is_train=False, activation=t
 
             conv_output = tf.nn.conv2d(
                 input=conv_output, filter=layer_filter,
-                strides=strides[layer_idx], padding=padding)
+                strides=layer_strides, padding=padding)
 
             # conv_output = conv((conv_output, layer_filter))
             # conv_output = tf.map_fn(fn=conv, elems=(conv_output, layer_filter))[0]
@@ -219,7 +223,7 @@ def cnn_network(input, cnn_params, gen_vector=None, is_train=False, activation=t
         else:
             conv_output = tf.nn.conv2d(
                 input=conv_output, filter=layer_filter,
-                strides=strides[layer_idx], padding='VALID')
+                strides=layer_strides, padding='VALID')
             conv_output = conv_output + layer_bias[None, None, None, :]
         if activation is not None:
             conv_output = activation(conv_output)
