@@ -39,14 +39,14 @@ def build_train(model,
                 tf.float32, [nenvs*step_size], name='old_log_prob')
 
         # network outputs for inference
-        step_dist, step_value, state_out = model(
+        step_dist, step_value, state_out = model.run_network(
             step_obs_input, tf.constant(0.0, shape=[nenvs, 1]), rnn_state_ph,
-            num_actions, lstm_unit, nenvs, 1, scope='model')
+            num_actions, lstm_unit, nenvs, 1, scope='model', is_train=False)
         # network outputs for training
-        train_dist, train_value, _ = model(
+        train_dist, train_value, _ = model.run_network(
             train_obs_input, tf.reshape(masks_ph, [nenvs * step_size, 1]),
             rnn_state_ph, num_actions, lstm_unit, nenvs, step_size,
-            scope='model')
+            scope='model', is_train=True)
 
         # network weights
         network_vars = tf.get_collection(
@@ -95,7 +95,7 @@ def build_train(model,
                 advantages_ph: advantages,
                 old_log_probs_ph: log_probs,
                 rnn_state_ph: rnn_state,
-                masks_ph: masks
+                masks_ph: masks,
             }
             sess = tf.get_default_session()
             return sess.run([loss, optimize_expr], feed_dict=feed_dict)[0]

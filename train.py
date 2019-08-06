@@ -16,9 +16,12 @@ from rlsaber.trainer import BatchTrainer
 from rlsaber.env import EnvWrapper, BatchEnvWrapper, NoopResetEnv, EpisodicLifeEnv, MaxAndSkipEnv
 from rlsaber.preprocess import atari_preprocess
 from network import make_network
+from utils import *
+from network_class import *
 from agent import Agent
 from scheduler import LinearScheduler, ConstantScheduler
 from datetime import datetime
+from utils import wrap_env
 
 
 def main():
@@ -29,6 +32,7 @@ def main():
     parser.add_argument('--logdir', type=str, default=date)
     parser.add_argument('--render', action='store_true')
     parser.add_argument('--demo', action='store_true')
+    parser.add_argument('--context_size', type=int, default=-1)
     args = parser.parse_args()
 
     outdir = os.path.join(os.path.dirname(__file__), 'results/' + args.logdir)
@@ -37,8 +41,9 @@ def main():
     logdir = os.path.join(os.path.dirname(__file__), 'logs/' + args.logdir)
 
     env_name = args.env
-    tmp_env = gym.make(env_name)
-    is_atari = len(tmp_env.observation_space.shape) != 1
+    env_data = wrap_env(env_name=env_name, context_size=None)
+    tmp_env = env_data['env']
+    is_atari = env_data['is_atari']
     if not is_atari:
         observation_space = tmp_env.observation_space
         constants = box_constants
@@ -73,9 +78,18 @@ def main():
     sess = tf.Session()
     sess.__enter__()
 
-    model = make_network(
-        constants.CONVS, constants.FCS, use_lstm=constants.LSTM,
-        padding=constants.PADDING, continuous=continuous)
+    # model = make_network(
+    #     constants.CONVS, constants.FCS, use_lstm=constants.LSTM,
+    #     padding=constants.PADDING, continuous=continuous)
+    model = Network(convs=constants.CONVS,
+                    fcs=constants.FCS,
+                    padding=constants.PADDING,
+                    continuous=continuous,
+                    context_size=constants.CONTEXT_SIZE,
+                    cpg_network_shape=constants.CPG_NETWORK_SHAPE,
+                    use_batch_norm=constants.USE_BATCH_NORM,
+                    batch_norm_momentum=constants.BATCH_NORM_MOMENTUM,
+                    batch_norm_train_stats=constants.BATCH_NORM_TRAIN_STATS)
 
     # learning rate with decay operation
     if constants.LR_DECAY == 'linear':

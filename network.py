@@ -3,6 +3,8 @@ import tensorflow as tf
 import tensorflow.contrib.layers as layers
 
 from rlsaber.tf_util import lstm, batch_to_seq, seq_to_batch
+from utils import *
+from collections import defaultdict
 
 
 def make_cnn(convs, padding, inpt, initializer=None):
@@ -22,15 +24,18 @@ def make_cnn(convs, padding, inpt, initializer=None):
             )
     return out
 
-def make_fcs(fcs, inpt, activation=tf.nn.relu, initializer=None):
+
+def make_fcs(fcs, inpt, activation=tf.nn.relu, initializer=None, context_size=None, name='fcs'):
     if initializer is None:
         initializer = tf.orthogonal_initializer(np.sqrt(2.0))
     out = inpt
     with tf.variable_scope('hiddens'):
         for hidden in fcs:
+
             out = layers.fully_connected(out, hidden, activation_fn=activation,
                                          weights_initializer=initializer)
     return out
+
 
 def make_lstm(lstm_unit, nenvs, step_size, inpt, masks, rnn_state):
     with tf.variable_scope('rnn'):
@@ -40,6 +45,7 @@ def make_lstm(lstm_unit, nenvs, step_size, inpt, masks, rnn_state):
             rnn_in, masks, rnn_state, lstm_unit, np.sqrt(2.0))
         rnn_out = seq_to_batch(rnn_out, nenvs, step_size)
     return rnn_out, rnn_state
+
 
 def cnn_network(convs,
                 fcs,
@@ -73,6 +79,7 @@ def cnn_network(convs,
 
     return dist, value, rnn_state
 
+
 def mlp_network(fcs,
                 use_lstm,
                 inpt,
@@ -82,25 +89,27 @@ def mlp_network(fcs,
                 lstm_unit,
                 nenvs,
                 step_size,
-                scope):
+                scope,
+                context_size):
     policy_rnn_state, value_rnn_state = tf.split(rnn_state, 2, axis=-1)
 
     inpt = layers.flatten(inpt)
     input_dim = inpt.get_shape().as_list()[1] + 1
+
     def initializer(scale):
         return tf.random_normal_initializer(stddev=np.sqrt(scale / input_dim))
 
     with tf.variable_scope('policy'):
         out = make_fcs(
-            fcs, inpt, activation=tf.nn.tanh, initializer=initializer(1.0))
+            fcs, inpt, activation=tf.nn.tanh, initializer=initializer(1.0), context_size=context_size)
         rnn_out, policy_rnn_state = make_lstm(
-            lstm_unit//2, nenvs, step_size, out, masks, policy_rnn_state)
+            lstm_unit//2, nenvs, step_size, out, masks, policy_rnn_state, context_size=context_size)
 
         if use_lstm:
             out = rnn_out
 
         policy = layers.fully_connected(out, num_actions, activation_fn=None,
-                                        weights_initializer=initializer(0.01))
+                                        weights_initializer=initializer(0.01), context_size=context_size)
         logstd = tf.get_variable(name='logstd', shape=[1, num_actions],
                                  initializer=tf.zeros_initializer())
         std = tf.zeros_like(policy) + tf.exp(logstd)
@@ -108,15 +117,15 @@ def mlp_network(fcs,
 
     with tf.variable_scope('value'):
         out = make_fcs(
-            fcs, inpt, activation=tf.nn.tanh, initializer=initializer(1.0))
+            fcs, inpt, activation=tf.nn.tanh, initializer=initializer(1.0), context_size=context_size)
         rnn_out, value_rnn_state = make_lstm(
-            lstm_unit//2, nenvs, step_size, out, masks, value_rnn_state)
+            lstm_unit//2, nenvs, step_size, out, masks, value_rnn_state, context_size=context_size)
 
         if use_lstm:
             out = rnn_out
 
         value = layers.fully_connected(
-            out, 1, activation_fn=None, weights_initializer=initializer(1.0))
+            out, 1, activation_fn=None, weights_initializer=initializer(1.0), context_size=context_size)
 
     rnn_state = tf.concat([policy_rnn_state, value_rnn_state], axis=-1)
 
@@ -128,6 +137,7 @@ def _make_network(convs,
                   use_lstm,
                   padding,
                   continuous,
+                  context_size,
                   inpt,
                   masks,
                   rnn_state,
@@ -139,12 +149,14 @@ def _make_network(convs,
     with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
         if continuous:
             return mlp_network(fcs, use_lstm, inpt, masks, rnn_state,
-                               num_actions, lstm_unit, nenvs, step_size, scope)
+                               num_actions, lstm_unit, nenvs, step_size, scope, context_size)
         else:
             return cnn_network(convs, fcs, use_lstm, padding, inpt, masks,
                                rnn_state, num_actions, lstm_unit, nenvs,
-                               step_size, scope)
+                               step_size, scope, context_size)
 
-def make_network(convs, fcs, use_lstm=True, padding='VALID', continuous=False):
-    return lambda *args, **kwargs: _make_network(convs, fcs, use_lstm, padding,\
-        continuous, *args, **kwargs)
+
+def make_network(convs, fcs, use_lstm=True, padding='VALID', continuous=False, context_size=None):
+    return lambda *args, **kwargs: _make_network(convs, fcs, use_lstm, padding,
+                                                 continuous, context_size,
+                                                 *args, **kwargs)
