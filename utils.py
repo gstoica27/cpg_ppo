@@ -177,7 +177,8 @@ def fc_network(input, fc_params, gen_vector=None, is_train=False, activation=tf.
 
     output = input
     for layer_weights, layer_bias in zip(weights, bias):
-        if gen_vector is not None:
+        # if gen_vector is not None:
+        if isinstance(layer_weights, ContextualParameterGenerator):
             layer_weights = layer_weights.generate(gen_vector, is_train)
             layer_bias = layer_bias.generate(gen_vector, is_train)
 
@@ -201,7 +202,8 @@ def cnn_network(input, cnn_params, gen_vector=None, is_train=False, activation=t
     conv_output = input
     for layer_idx, (layer_filter, layer_bias) in enumerate(zip(filters, bias)):
 
-        if gen_vector is not None:
+        # if gen_vector is not None:
+        if isinstance(layer_filter, ContextualParameterGenerator):
             layer_filter = layer_filter.generate(gen_vector, is_train)
             layer_bias = layer_bias.generate(gen_vector, is_train)
 
@@ -232,7 +234,8 @@ def lstm_network(inputs, keep_props, state, lstm_params, gen_vector=None, is_tra
 
     cell_state, hidden_state = tf.split(axis=1, num_or_size_splits=2, value=state)
 
-    if gen_vector is not None:
+    # if gen_vector is not None:
+    if isinstance(input_weights, ContextualParameterGenerator):
         input_weights = input_weights.generate(gen_vector, is_train)
         hidden_weights = hidden_weights.generate(gen_vector, is_train)
         bias = bias.generate(gen_vector, is_train)
